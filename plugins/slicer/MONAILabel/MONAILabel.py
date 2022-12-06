@@ -349,6 +349,18 @@ class MONAILabelWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # ROI placement for scribbles
         self.ui.scribblesPlaceWidget.setButtonsVisible(False)
         self.ui.scribblesPlaceWidget.placeButton().show()
+        self.ui.uploadImageButton.setIcon(self.icon("upload.svg"))
+        self.ui.importLabelButton.setIcon(self.icon("download.png"))
+
+        self.ui.dgPositiveControlPointPlacementWidget.setMRMLScene(slicer.mrmlScene)
+        self.ui.dgPositiveControlPointPlacementWidget.placeButton().toolTip = "Select +ve points"
+        self.ui.dgPositiveControlPointPlacementWidget.buttonsVisible = False
+        self.ui.dgPositiveControlPointPlacementWidget.placeButton().show()
+        self.ui.dgPositiveControlPointPlacementWidget.deleteButton().show()
+
+        self.ui.dgNegativeControlPointPlacementWidget.setMRMLScene(slicer.mrmlScene)
+        self.ui.dgNegativeControlPointPlacementWidget.placeButton().toolTip = "Select -ve points"
+        self.ui.dgNegativeControlPointPlacementWidget.buttonsVisible = False
         self.ui.scribblesPlaceWidget.setMRMLScene(slicer.mrmlScene)
 
         # start with scribbles section disabled
@@ -522,11 +534,11 @@ class MONAILabelWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         self.ui.uploadImageButton.setEnabled(self.current_sample and self.current_sample.get("session"))
 
-        self.updateSelector(self.ui.segmentationModelSelector, ["segmentation"], "SegmentationModel", 0)
+        self.updateSelector(self.ui.segmentationModelSelector, ["segmentation", "detection"], "SegmentationModel", 0)
         self.updateSelector(self.ui.deepgrowModelSelector, ["deepgrow", "deepedit"], "DeepgrowModel", 0)
         self.updateSelector(self.ui.scribblesMethodSelector, ["scribbles"], "ScribblesMethod", 0)
 
-        if self.models and [k for k, v in self.models.items() if v["type"] == "segmentation"]:
+        if self.models and [k for k, v in self.models.items() if v["type"] in ("segmentation", "detection")]:
             self.ui.segmentationCollapsibleButton.collapsed = False
             self.ui.segmentationCollapsibleButton.show()
         else:
@@ -1673,6 +1685,12 @@ class MONAILabelWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                 destination_node.SetReferenceImageGeometryParameterFromVolumeNode(self._volumeNode)
 
             slicer.mrmlScene.RemoveNode(source_node)
+        elif in_file.endswith(".json"):
+            # Add bounding box ROI node ----
+            logging.info("Update Detection ROI Bounding Box")
+            detectionROINode = slicer.util.loadMarkups(in_file)
+            detectionROINode.SetName('Detection ROI')
+            detectionROINode.GetDisplayNode().SetInteractionHandleScale(0.7)
         else:
             labels = [label for label in labels if label != "background"]
             logging.info(f"Update Segmentation Mask using Labels: {labels}")
@@ -1696,6 +1714,12 @@ class MONAILabelWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
                     labelmapVolumeNode, segmentationNode, segmentIds
                 )
                 slicer.mrmlScene.RemoveNode(labelmapVolumeNode)
+            elif in_file.endswith(".json"):
+                # Add bounding box ROI node to Slicer
+                logging.info("Update Detection ROI Bounding Box")
+                detectionROINode = slicer.util.loadMarkups(in_file)
+                detectionROINode.SetName('Detection ROI')
+                detectionROINode.GetDisplayNode().SetInteractionHandleScale(0.7)
             else:
                 existingCount = segmentation.GetNumberOfSegments()
                 existing_label_ids = {}
